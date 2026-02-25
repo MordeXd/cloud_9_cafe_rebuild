@@ -1,0 +1,160 @@
+<?php
+session_start();
+require_once '../config/db_config.php';
+
+// Check if admin is logged in
+if (!isset($_SESSION['cafe_admin_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+$success = '';
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $offer_code = mysqli_real_escape_string($con, strtoupper($_POST['offer_code']));
+    $title = mysqli_real_escape_string($con, $_POST['title']);
+    $description = mysqli_real_escape_string($con, $_POST['description']);
+    $discount_type = mysqli_real_escape_string($con, $_POST['discount_type']);
+    $discount_value = floatval($_POST['discount_value']);
+    $min_order = floatval($_POST['min_order_amount']);
+    $max_discount = !empty($_POST['max_discount']) ? floatval($_POST['max_discount']) : 'NULL';
+    $valid_from = mysqli_real_escape_string($con, $_POST['valid_from']);
+    $valid_until = mysqli_real_escape_string($con, $_POST['valid_until']);
+    $usage_limit = !empty($_POST['usage_limit']) ? intval($_POST['usage_limit']) : 'NULL';
+    
+    $query = "INSERT INTO cafe_offers (offer_code, title, description, discount_type, discount_value, min_order_amount, max_discount, valid_from, valid_until, usage_limit) 
+              VALUES ('$offer_code', '$title', '$description', '$discount_type', $discount_value, $min_order, $max_discount, '$valid_from', '$valid_until', $usage_limit)";
+    
+    if (mysqli_query($con, $query)) {
+        header("Location: offers.php");
+        exit();
+    } else {
+        $error = 'Failed to add offer. Code may already exist.';
+    }
+}
+
+$title = "Add Offer - Cloud 9 Cafe";
+$active_sidebar = 'offers';
+ob_start();
+?>
+
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-card {
+        border: none;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #333;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h3 class="fw-bold mb-2"><i class="fas fa-plus me-2"></i>Add Offer</h3>
+            <p class="mb-0 opacity-75">Create a new promotional offer</p>
+        </div>
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+            <a href="offers.php" class="btn btn-light rounded-pill px-4">
+                <i class="fas fa-arrow-left me-2"></i>Back to Offers
+            </a>
+        </div>
+    </div>
+</div>
+
+<?php if ($error): ?>
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-circle me-2"></i><?php echo $error; ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<div class="card form-card shadow-sm">
+    <div class="card-body p-4">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Offer Code *</label>
+                    <input type="text" name="offer_code" class="form-control text-uppercase" required placeholder="e.g., SAVE20">
+                    <small class="text-muted">Unique code customers will use</small>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Title *</label>
+                    <input type="text" name="title" class="form-control" required placeholder="e.g., Save 20% Off">
+                </div>
+                
+                <div class="col-md-12">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control" rows="3" placeholder="Describe the offer..."></textarea>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Discount Type *</label>
+                    <select name="discount_type" class="form-select" required>
+                        <option value="Percentage">Percentage (%)</option>
+                        <option value="Fixed">Fixed Amount ($)</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Discount Value *</label>
+                    <input type="number" name="discount_value" step="0.01" min="0" class="form-control" required placeholder="e.g., 20">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Max Discount</label>
+                    <input type="number" name="max_discount" step="0.01" min="0" class="form-control" placeholder="Optional">
+                    <small class="text-muted">For percentage discounts</small>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Min Order Amount ($)</label>
+                    <input type="number" name="min_order_amount" step="0.01" min="0" class="form-control" value="0">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Valid From *</label>
+                    <input type="date" name="valid_from" class="form-control" required value="<?php echo date('Y-m-d'); ?>">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Valid Until *</label>
+                    <input type="date" name="valid_until" class="form-control" required value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Usage Limit</label>
+                    <input type="number" name="usage_limit" min="1" class="form-control" placeholder="Optional (unlimited if empty)">
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <div class="d-flex justify-content-end gap-2">
+                <a href="offers.php" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
+                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                    <i class="fas fa-save me-2"></i>Create Offer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php
+$dashboard_content = ob_get_clean();
+include 'admin_layout.php';
+?>

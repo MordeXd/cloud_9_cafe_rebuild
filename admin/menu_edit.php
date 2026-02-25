@@ -1,0 +1,223 @@
+<?php
+session_start();
+require_once '../config/db_config.php';
+
+// Check if admin is logged in
+if (!isset($_SESSION['cafe_admin_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    header("Location: menu.php");
+    exit();
+}
+
+$item_id = intval($_GET['id']);
+
+// Get item
+$item_result = mysqli_query($con, "SELECT * FROM menu_items WHERE id = $item_id");
+if (mysqli_num_rows($item_result) == 0) {
+    header("Location: menu.php");
+    exit();
+}
+$item = mysqli_fetch_assoc($item_result);
+
+$success = '';
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $name = mysqli_real_escape_string($con, $_POST['name']);
+    $description = mysqli_real_escape_string($con, $_POST['description']);
+    $price = floatval($_POST['price']);
+    $category = mysqli_real_escape_string($con, $_POST['category']);
+    $stock = intval($_POST['stock_quantity']);
+    $featured = isset($_POST['featured']) ? 1 : 0;
+    
+    $image_sql = '';
+    if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+        $upload_dir = '../assets/images/menu/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+        $filename = time() . '_' . $_FILES['image']['name'];
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
+            $image = 'menu/' . $filename;
+            $image_sql = ", image = '$image'";
+        }
+    }
+    
+    $query = "UPDATE menu_items SET 
+              name = '$name', 
+              description = '$description', 
+              price = $price, 
+              category = '$category', 
+              stock_quantity = $stock, 
+              featured = $featured
+              $image_sql 
+              WHERE id = $item_id";
+    
+    if (mysqli_query($con, $query)) {
+        header("Location: menu.php");
+        exit();
+    } else {
+        $error = 'Failed to update menu item';
+    }
+}
+
+$title = "Edit Menu Item - Cloud 9 Cafe";
+$active_sidebar = 'menu';
+ob_start();
+?>
+
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-card {
+        border: none;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .image-preview {
+        width: 100%;
+        height: 200px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .image-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #333;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h3 class="fw-bold mb-2"><i class="fas fa-edit me-2"></i>Edit Menu Item</h3>
+            <p class="mb-0 opacity-75">Update menu item details</p>
+        </div>
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+            <a href="menu.php" class="btn btn-light rounded-pill px-4">
+                <i class="fas fa-arrow-left me-2"></i>Back to Menu
+            </a>
+        </div>
+    </div>
+</div>
+
+<?php if ($error): ?>
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-circle me-2"></i><?php echo $error; ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<div class="card form-card shadow-sm">
+    <div class="card-body p-4">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Item Name *</label>
+                            <input type="text" name="name" class="form-control form-control-lg" required value="<?php echo htmlspecialchars($item['name']); ?>">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Category *</label>
+                            <select name="category" class="form-select" required>
+                                <option value="">Select Category</option>
+                                <option value="Coffee" <?php echo $item['category'] == 'Coffee' ? 'selected' : ''; ?>>Coffee</option>
+                                <option value="Snack" <?php echo $item['category'] == 'Snack' ? 'selected' : ''; ?>>Snack</option>
+                                <option value="Dessert" <?php echo $item['category'] == 'Dessert' ? 'selected' : ''; ?>>Dessert</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Price ($) *</label>
+                            <input type="number" name="price" step="0.01" min="0" class="form-control" required value="<?php echo $item['price']; ?>">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Stock Quantity</label>
+                            <input type="number" name="stock_quantity" min="0" class="form-control" value="<?php echo $item['stock_quantity']; ?>">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Featured</label>
+                            <div class="form-check form-switch mt-2">
+                                <input type="checkbox" name="featured" class="form-check-input" id="featuredSwitch" <?php echo $item['featured'] ? 'checked' : ''; ?> style="width: 3rem; height: 1.5rem;">
+                                <label class="form-check-label ms-2" for="featuredSwitch">Show on homepage</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="4"><?php echo htmlspecialchars($item['description']); ?></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Item Image</label>
+                    <div class="image-preview mb-3" id="imagePreview">
+                        <?php if ($item['image']): ?>
+                        <img src="../assets/images/<?php echo $item['image']; ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
+                        <?php else: ?>
+                        <i class="fas fa-image fa-3x text-muted"></i>
+                        <?php endif; ?>
+                    </div>
+                    <input type="file" name="image" class="form-control" id="imageInput" accept="image/*">
+                    <small class="text-muted">Leave empty to keep current image</small>
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <div class="d-flex justify-content-end gap-2">
+                <a href="menu.php" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
+                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                    <i class="fas fa-save me-2"></i>Update Item
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+        const preview = document.getElementById('imagePreview');
+        const file = e.target.files[0];
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+</script>
+
+<?php
+$dashboard_content = ob_get_clean();
+include 'admin_layout.php';
+?>

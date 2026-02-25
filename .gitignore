@@ -1,0 +1,56 @@
+# =====================================================
+# CLOUD 9 CAFE - GITIGNORE
+# =====================================================
+
+# Environment files (contains sensitive data)
+.env
+.env.local
+.env.production
+
+# Uploads directory (user files)
+assets/uploads/*
+!assets/uploads/.gitkeep
+
+# Log files
+*.log
+logs/
+error_log
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Dependency directories
+node_modules/
+composer.lock
+vendor/autoload.php
+!vendor/PHPMailer/
+
+# Cache and temporary files
+cache/
+temp/
+tmp/
+*.tmp
+*.cache
+
+# Database backups
+*.sql.gz
+*.sql.zip
+backups/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# XAMPP specific
+xampp/

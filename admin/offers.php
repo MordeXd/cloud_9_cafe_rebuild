@@ -1,0 +1,174 @@
+<?php
+session_start();
+require_once '../config/db_config.php';
+
+// Check if admin is logged in
+if (!isset($_SESSION['cafe_admin_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+// Handle status toggle
+if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
+    $offer_id = intval($_GET['toggle']);
+    $current = mysqli_query($con, "SELECT status FROM cafe_offers WHERE id = $offer_id");
+    $status = mysqli_fetch_assoc($current)['status'];
+    $new_status = ($status == 'Active') ? 'Inactive' : 'Active';
+    mysqli_query($con, "UPDATE cafe_offers SET status = '$new_status' WHERE id = $offer_id");
+    header("Location: offers.php");
+    exit();
+}
+
+// Handle delete
+if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
+    $offer_id = intval($_GET['delete']);
+    mysqli_query($con, "DELETE FROM cafe_offers WHERE id = $offer_id");
+    header("Location: offers.php");
+    exit();
+}
+
+// Get offers
+$offers = mysqli_query($con, "SELECT * FROM cafe_offers ORDER BY created_at DESC");
+
+$title = "Offers - Cloud 9 Cafe";
+$active_sidebar = 'offers';
+ob_start();
+?>
+
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-active { background: #d4edda; color: #155724; }
+    .status-inactive { background: #f8d7da; color: #721c24; }
+    .status-expired { background: #e2e3e5; color: #6c757d; }
+
+    .discount-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .action-btn {
+        width: 35px;
+        height: 35px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover { transform: translateY(-2px); }
+    .action-btn.toggle { background: rgba(40, 167, 69, 0.1); color: #28a745; }
+    .action-btn.delete { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+</style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h3 class="fw-bold mb-2"><i class="fas fa-tag me-2"></i>Offer Management</h3>
+            <p class="mb-0 opacity-75">Manage promotional offers and discounts</p>
+        </div>
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+            <a href="offer_add.php" class="btn btn-light rounded-pill px-4">
+                <i class="fas fa-plus me-2"></i>Add Offer
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Offers List -->
+<div class="row g-4">
+    <?php if (mysqli_num_rows($offers) === 0): ?>
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-tag fa-3x text-muted mb-3"></i>
+                <p class="text-muted mb-0">No offers found</p>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
+    <?php while ($offer = mysqli_fetch_assoc($offers)): 
+        $is_expired = strtotime($offer['valid_until']) < time();
+        $status_class = $is_expired ? 'status-expired' : ($offer['status'] == 'Active' ? 'status-active' : 'status-inactive');
+        $status_text = $is_expired ? 'Expired' : $offer['status'];
+    ?>
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <span class="discount-badge">
+                            <?php echo $offer['discount_type'] == 'Percentage' ? $offer['discount_value'] . '%' : '$' . $offer['discount_value']; ?> OFF
+                        </span>
+                    </div>
+                    <span class="status-badge <?php echo $status_class; ?>">
+                        <?php echo $status_text; ?>
+                    </span>
+                </div>
+
+                <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($offer['title']); ?></h5>
+                <p class="text-muted small mb-2"><?php echo htmlspecialchars($offer['offer_code']); ?></p>
+                <p class="text-muted small mb-3"><?php echo htmlspecialchars($offer['description']); ?></p>
+
+                <div class="mb-3">
+                    <small class="text-muted d-block">
+                        <i class="fas fa-calendar me-1"></i>
+                        Valid: <?php echo date('M d, Y', strtotime($offer['valid_from'])); ?> - <?php echo date('M d, Y', strtotime($offer['valid_until'])); ?>
+                    </small>
+                    <?php if ($offer['min_order_amount'] > 0): ?>
+                    <small class="text-muted d-block">
+                        <i class="fas fa-shopping-cart me-1"></i>
+                        Min. Order: $<?php echo number_format($offer['min_order_amount'], 2); ?>
+                    </small>
+                    <?php endif; ?>
+                    <?php if ($offer['usage_limit']): ?>
+                    <small class="text-muted d-block">
+                        <i class="fas fa-ticket-alt me-1"></i>
+                        Usage: <?php echo $offer['usage_count']; ?> / <?php echo $offer['usage_limit']; ?>
+                    </small>
+                    <?php endif; ?>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <?php if (!$is_expired): ?>
+                    <a href="?toggle=<?php echo $offer['id']; ?>" class="action-btn toggle" title="Toggle Status">
+                        <i class="fas fa-<?php echo $offer['status'] == 'Active' ? 'ban' : 'check'; ?>"></i>
+                    </a>
+                    <?php else: ?>
+                    <span></span>
+                    <?php endif; ?>
+                    <a href="?delete=<?php echo $offer['id']; ?>" class="action-btn delete" title="Delete" onclick="return confirm('Delete this offer?')">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endwhile; ?>
+    <?php endif; ?>
+</div>
+
+<?php
+$dashboard_content = ob_get_clean();
+include 'admin_layout.php';
+?>
